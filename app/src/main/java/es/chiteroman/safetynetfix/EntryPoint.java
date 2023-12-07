@@ -11,13 +11,12 @@ import java.security.Provider;
 import java.security.Security;
 
 public final class EntryPoint {
-    private static final String PRODUCT = "foster_e";
+    private static final String PRODUCT = "foster_e_hdd";
     private static final String DEVICE = "foster";
     private static final String MANUFACTURER = "NVIDIA";
     private static final String BRAND = "NVIDIA";
     private static final String MODEL = "SHIELD Android TV";
-    private static final String FINGERPRINT = "NVIDIA/foster_e/foster:7.0/NRD90M/2427173_1038.2788:user/release-keys";
-    private static final String SECURITY_PATCH = "2018-01-05";
+    private static final String FINGERPRINT = "NVIDIA/foster_e_hdd/foster:7.0/NRD90M/2427173_1038.2788:user/release-keys";
 
     public static void init() {
         spoofProvider();
@@ -58,7 +57,6 @@ public final class EntryPoint {
         setProp("BRAND", BRAND);
         setProp("MODEL", MODEL);
         setProp("FINGERPRINT", FINGERPRINT);
-        setVersionProp("SECURITY_PATCH", SECURITY_PATCH);
     }
 
     private static void setProp(String name, String value) {

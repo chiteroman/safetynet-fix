@@ -1,7 +1,7 @@
 id=safetynet-fix
 name=Universal SafetyNet Fix
-version=v3.0.0
-versionCode=30000
+version=v4
+versionCode=40000
 author=chiteroman
 description=An universal fix for SafetyNet and Play Integrity on Android 8–14 devices with hardware attestation.
 updateJson=https://raw.githubusercontent.com/chiteroman/safetynet-fix/main/update.json

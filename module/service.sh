@@ -1,52 +1,60 @@
-# Sensitive properties
+# Conditional sensitive properties
 
-maybe_set_prop() {
-    local prop="$1"
-    local contains="$2"
-    local value="$3"
+resetprop_if_diff() {
+    local NAME=$1
+    local EXPECTED=$2
+    local CURRENT=$(resetprop $NAME)
 
-    if [[ "$(getprop "$prop")" == *"$contains"* ]]; then
-        resetprop "$prop" "$value"
-    fi
+    [ -z "$CURRENT" ] || [ "$CURRENT" == "$EXPECTED" ] || resetprop $NAME $EXPECTED
+}
+
+resetprop_if_match() {
+    local NAME=$1
+    local CONTAINS=$2
+    local VALUE=$3
+
+    [[ "$(resetprop $NAME)" == *"$CONTAINS"* ]] && resetprop $NAME $VALUE
 }
 
 # Magisk recovery mode
-maybe_set_prop ro.bootmode recovery unknown
-maybe_set_prop ro.boot.mode recovery unknown
-maybe_set_prop vendor.boot.mode recovery unknown
+resetprop_if_match ro.bootmode recovery unknown
+resetprop_if_match ro.boot.mode recovery unknown
+resetprop_if_match vendor.boot.mode recovery unknown
 
-# Hiding SELinux | Permissive status
-resetprop --delete ro.build.selinux
+# SELinux
+if [ -n "$(resetprop ro.build.selinux)" ]; then
+    resetprop --delete ro.build.selinux
+fi
 
-# Hiding SELinux | Use toybox to protect *stat* access time reading
-if [[ "$(toybox cat /sys/fs/selinux/enforce)" == "0" ]]; then
+# use toybox to protect *stat* access time reading
+if [ "$(toybox cat /sys/fs/selinux/enforce)" == "0" ]; then
     chmod 640 /sys/fs/selinux/enforce
     chmod 440 /sys/fs/selinux/policy
 fi
 
-# Late props which must be set after boot_completed
+# SafetyNet/Play Integrity
 {
-    until [[ "$(getprop sys.boot_completed)" == "1" ]]; do
+    # late props which must be set after boot_completed for various OEMs
+    until [ "$(getprop sys.boot_completed)" == "1" ]; do
         sleep 1
     done
 
-    # SafetyNet/Play Integrity | Avoid breaking Realme fingerprint scanners
-    resetprop ro.boot.flash.locked 1
+    # Avoid breaking Realme fingerprint scanners
+    resetprop_if_diff ro.boot.flash.locked 1
 
-    # SafetyNet/Play Integrity | Avoid breaking Oppo fingerprint scanners
-    resetprop ro.boot.vbmeta.device_state locked
+    # Avoid breaking Oppo fingerprint scanners
+    resetprop_if_diff ro.boot.vbmeta.device_state locked
 
-    # SafetyNet/Play Integrity | Avoid breaking OnePlus display modes/fingerprint scanners
-    resetprop vendor.boot.verifiedbootstate green
+    # Avoid breaking OnePlus display modes/fingerprint scanners
+    resetprop_if_diff vendor.boot.verifiedbootstate green
 
-    # SafetyNet/Play Integrity | Avoid breaking OnePlus display modes/fingerprint scanners on OOS 12
-    resetprop ro.boot.verifiedbootstate green
-    resetprop ro.boot.veritymode enforcing
-    resetprop vendor.boot.vbmeta.device_state locked
+    # Avoid breaking OnePlus/Oppo display fingerprint scanners on OOS/ColorOS 12+
+    resetprop_if_diff ro.boot.verifiedbootstate green
+    resetprop_if_diff ro.boot.veritymode enforcing
+    resetprop_if_diff vendor.boot.vbmeta.device_state locked
 	
-	# Avoid breaking encryption, set shipping level to 32 for devices >=33 to allow for software attestation
-	first_api_level=$(getprop ro.product.first_api_level)
-	if [ -z "$first_api_level" ] || [ "$first_api_level" -gt 32 ]; then
-		resetprop ro.product.first_api_level 32
-	fi
+    # Avoid breaking encryption, set shipping level to 32 for devices >=33 to allow for software attestation
+	if [[ "$(getprop ro.product.first_api_level)" -ge 33 ]]; then
+        resetprop ro.product.first_api_level 32
+    fi
 }&
