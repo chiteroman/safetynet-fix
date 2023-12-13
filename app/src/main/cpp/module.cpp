@@ -1,15 +1,15 @@
 #include <android/log.h>
 #include <unistd.h>
-#include <string.h>
-#include <stdlib.h>
+#include <string>
+#include <vector>
+
+#define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, "SNFix/JNI", __VA_ARGS__)
 
 #include "zygisk.hpp"
 
 using zygisk::Api;
 using zygisk::AppSpecializeArgs;
 using zygisk::ServerSpecializeArgs;
-
-#define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, "SNFix/JNI", __VA_ARGS__)
 
 class SafetyNetFix : public zygisk::ModuleBase {
 public:
@@ -19,33 +19,36 @@ public:
     }
 
     void preAppSpecialize(AppSpecializeArgs *args) override {
-        auto process = env->GetStringUTFChars(args->nice_name, nullptr);
-
-        if (process != nullptr && strncmp(process, "com.google.android.gms", 22) == 0) {
-
-            api->setOption(zygisk::FORCE_DENYLIST_UNMOUNT);
-
-            if (strcmp(process, "com.google.android.gms.unstable") == 0) {
-
-                int fd = api->connectCompanion();
-                read(fd, &bufferSize, sizeof(long));
-
-                if (bufferSize > 0) {
-                    buffer = static_cast<char *>(calloc(1, bufferSize));
-                    read(fd, buffer, bufferSize);
-                }
-
-                close(fd);
-            }
-        }
-
-        env->ReleaseStringUTFChars(args->nice_name, process);
 
         api->setOption(zygisk::DLCLOSE_MODULE_LIBRARY);
+
+        auto rawProcess = env->GetStringUTFChars(args->nice_name, nullptr);
+        std::string process(rawProcess);
+        env->ReleaseStringUTFChars(args->nice_name, rawProcess);
+
+        if (!process.starts_with("com.google.android.gms")) return;
+
+        api->setOption(zygisk::FORCE_DENYLIST_UNMOUNT);
+
+        if (process != "com.google.android.gms.unstable") return;
+
+        long size = 0;
+        int fd = api->connectCompanion();
+
+        read(fd, &size, sizeof(size));
+
+        if (size > 0) {
+            vector.resize(size);
+            read(fd, vector.data(), size);
+        } else {
+            LOGD("Couldn't read classes.dex from file descriptor!");
+        }
+
+        close(fd);
     }
 
     void postAppSpecialize(const AppSpecializeArgs *args) override {
-        if (buffer == nullptr || bufferSize < 1) return;
+        if (vector.empty()) return;
 
         LOGD("get system classloader");
         auto clClass = env->FindClass("java/lang/ClassLoader");
@@ -53,11 +56,12 @@ public:
                                                            "()Ljava/lang/ClassLoader;");
         auto systemClassLoader = env->CallStaticObjectMethod(clClass, getSystemClassLoader);
 
+        LOGD("create buffer");
+        auto buf = env->NewDirectByteBuffer(vector.data(), vector.size());
         LOGD("create class loader");
         auto dexClClass = env->FindClass("dalvik/system/InMemoryDexClassLoader");
         auto dexClInit = env->GetMethodID(dexClClass, "<init>",
                                           "(Ljava/nio/ByteBuffer;Ljava/lang/ClassLoader;)V");
-        auto buf = env->NewDirectByteBuffer(buffer, bufferSize);
         auto dexCl = env->NewObject(dexClClass, dexClInit, buf, systemClassLoader);
 
         LOGD("load class");
@@ -70,8 +74,6 @@ public:
         auto entryClass = (jclass) entryClassObj;
         auto entryInit = env->GetStaticMethodID(entryClass, "init", "()V");
         env->CallStaticVoidMethod(entryClass, entryInit);
-
-        free(buffer);
     }
 
     void preServerSpecialize(ServerSpecializeArgs *args) override {
@@ -81,13 +83,12 @@ public:
 private:
     Api *api = nullptr;
     JNIEnv *env = nullptr;
-    char *buffer = nullptr;
-    long bufferSize = 0;
+    std::vector<unsigned char> vector;
 };
 
 static void companion(int fd) {
-    char *buffer = nullptr;
     long size = 0;
+    std::vector<unsigned char> vector;
 
     FILE *file = fopen("/data/adb/modules/safetynet-fix/classes.dex", "rb");
 
@@ -96,16 +97,14 @@ static void companion(int fd) {
         size = ftell(file);
         fseek(file, 0, SEEK_SET);
 
-        buffer = static_cast<char *>(calloc(1, size));
-        fread(buffer, 1, size, file);
+        vector.resize(size);
+        fread(vector.data(), 1, size, file);
 
         fclose(file);
     }
 
-    write(fd, &size, sizeof(long));
-    write(fd, buffer, size);
-
-    free(buffer);
+    write(fd, &size, sizeof(size));
+    write(fd, vector.data(), size);
 }
 
 REGISTER_ZYGISK_MODULE(SafetyNetFix)

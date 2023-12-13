@@ -26,7 +26,9 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+            )
         }
     }
 
@@ -45,7 +47,8 @@ android {
 tasks.register("copyFiles") {
     doLast {
         val moduleFolder = project.rootDir.resolve("module")
-        val dexFile = project.buildDir.resolve("intermediates/dex/release/minifyReleaseWithR8/classes.dex")
+        val dexFile =
+            project.buildDir.resolve("intermediates/dex/release/minifyReleaseWithR8/classes.dex")
         val soDir = project.buildDir.resolve("intermediates/stripped_native_libs/release/out/lib")
 
         dexFile.copyTo(moduleFolder.resolve("classes.dex"), overwrite = true)

@@ -3,9 +3,6 @@ if magisk --denylist status; then
     magisk --denylist rm com.google.android.gms
 fi
 
-# Remove conflicting modules if installed
-rm -rf /data/adb/modules/playintegrityfix
-
 # Conditional early sensitive properties
 
 resetprop_if_diff() {
