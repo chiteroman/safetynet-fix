@@ -33,7 +33,7 @@ if [ "$(toybox cat /sys/fs/selinux/enforce)" == "0" ]; then
 fi
 
 # KernelSU handles boot completed state in different file.
-if [ -z "$KSU" ] || [ "$KSU" = false ]; then
+if [[ -z "$KSU" || "$KSU" = false ]]; then
 	{
 		# late props which must be set after boot_completed for various OEMs
 		until [ "$(resetprop sys.boot_completed)" == "1" ]; do
@@ -53,5 +53,11 @@ if [ -z "$KSU" ] || [ "$KSU" = false ]; then
 		resetprop_if_diff ro.boot.verifiedbootstate green
 		resetprop_if_diff ro.boot.veritymode enforcing
 		resetprop_if_diff vendor.boot.vbmeta.device_state locked
+		
+		# Avoid hardware attestation.
+		first_api_level=$(resetprop ro.product.first_api_level)
+		if [[ "$first_api_level" -gt 32 || -z "$first_api_level" ]]; then
+			resetprop ro.product.first_api_level 32
+		fi
 	}&
 fi

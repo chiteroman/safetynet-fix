@@ -27,3 +27,9 @@ resetprop_if_diff vendor.boot.verifiedbootstate green
 resetprop_if_diff ro.boot.verifiedbootstate green
 resetprop_if_diff ro.boot.veritymode enforcing
 resetprop_if_diff vendor.boot.vbmeta.device_state locked
+
+# Avoid hardware attestation.
+first_api_level=$(resetprop ro.product.first_api_level)
+if [[ "$first_api_level" -gt 32 || -z "$first_api_level" ]]; then
+	resetprop ro.product.first_api_level 32
+fi

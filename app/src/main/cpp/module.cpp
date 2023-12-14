@@ -1,7 +1,7 @@
 #include <android/log.h>
 #include <unistd.h>
-#include <string>
-#include <vector>
+#include <string.h>
+#include <stdlib.h>
 
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, "SNFix/JNI", __VA_ARGS__)
 
@@ -22,33 +22,34 @@ public:
 
         api->setOption(zygisk::DLCLOSE_MODULE_LIBRARY);
 
-        auto rawProcess = env->GetStringUTFChars(args->nice_name, nullptr);
-        std::string process(rawProcess);
-        env->ReleaseStringUTFChars(args->nice_name, rawProcess);
+        auto name = env->GetStringUTFChars(args->nice_name, nullptr);
 
-        if (!process.starts_with("com.google.android.gms")) return;
+        if (name && (strncmp(name, "com.google.android.gms", 22) == 0)) {
 
-        api->setOption(zygisk::FORCE_DENYLIST_UNMOUNT);
+            api->setOption(zygisk::FORCE_DENYLIST_UNMOUNT);
 
-        if (process != "com.google.android.gms.unstable") return;
+            if (strcmp(name, "com.google.android.gms.unstable") == 0) {
 
-        long size = 0;
-        int fd = api->connectCompanion();
+                int fd = api->connectCompanion();
 
-        read(fd, &size, sizeof(size));
+                read(fd, &bufferSize, sizeof(bufferSize));
 
-        if (size > 0) {
-            vector.resize(size);
-            read(fd, vector.data(), size);
-        } else {
-            LOGD("Couldn't read classes.dex from file descriptor!");
+                if (bufferSize > 0) {
+                    buffer = new unsigned char[bufferSize];
+                    read(fd, buffer, bufferSize);
+                } else {
+                    LOGD("Couldn't read classes.dex from file descriptor!");
+                }
+
+                close(fd);
+            }
         }
 
-        close(fd);
+        env->ReleaseStringUTFChars(args->nice_name, name);
     }
 
     void postAppSpecialize(const AppSpecializeArgs *args) override {
-        if (vector.empty()) return;
+        if (buffer == nullptr || bufferSize < 1) return;
 
         LOGD("get system classloader");
         auto clClass = env->FindClass("java/lang/ClassLoader");
@@ -57,7 +58,7 @@ public:
         auto systemClassLoader = env->CallStaticObjectMethod(clClass, getSystemClassLoader);
 
         LOGD("create buffer");
-        auto buf = env->NewDirectByteBuffer(vector.data(), vector.size());
+        auto buf = env->NewDirectByteBuffer(buffer, bufferSize);
         LOGD("create class loader");
         auto dexClClass = env->FindClass("dalvik/system/InMemoryDexClassLoader");
         auto dexClInit = env->GetMethodID(dexClClass, "<init>",
@@ -74,6 +75,8 @@ public:
         auto entryClass = (jclass) entryClassObj;
         auto entryInit = env->GetStaticMethodID(entryClass, "init", "()V");
         env->CallStaticVoidMethod(entryClass, entryInit);
+
+        delete[] buffer;
     }
 
     void preServerSpecialize(ServerSpecializeArgs *args) override {
@@ -83,12 +86,13 @@ public:
 private:
     Api *api = nullptr;
     JNIEnv *env = nullptr;
-    std::vector<unsigned char> vector;
+    long bufferSize = 0;
+    unsigned char *buffer = nullptr;
 };
 
 static void companion(int fd) {
     long size = 0;
-    std::vector<unsigned char> vector;
+    unsigned char *buffer = nullptr;
 
     FILE *file = fopen("/data/adb/modules/safetynet-fix/classes.dex", "rb");
 
@@ -97,14 +101,16 @@ static void companion(int fd) {
         size = ftell(file);
         fseek(file, 0, SEEK_SET);
 
-        vector.resize(size);
-        fread(vector.data(), 1, size, file);
+        buffer = new unsigned char[size];
+        fread(buffer, 1, size, file);
 
         fclose(file);
     }
 
     write(fd, &size, sizeof(size));
-    write(fd, vector.data(), size);
+    write(fd, buffer, size);
+
+    delete[] buffer;
 }
 
 REGISTER_ZYGISK_MODULE(SafetyNetFix)

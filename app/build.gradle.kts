@@ -48,8 +48,9 @@ tasks.register("copyFiles") {
     doLast {
         val moduleFolder = project.rootDir.resolve("module")
         val dexFile =
-            project.buildDir.resolve("intermediates/dex/release/minifyReleaseWithR8/classes.dex")
-        val soDir = project.buildDir.resolve("intermediates/stripped_native_libs/release/out/lib")
+            project.layout.buildDirectory.get().asFile.resolve("intermediates/dex/release/minifyReleaseWithR8/classes.dex")
+        val soDir =
+            project.layout.buildDirectory.get().asFile.resolve("intermediates/stripped_native_libs/release/out/lib")
 
         dexFile.copyTo(moduleFolder.resolve("classes.dex"), overwrite = true)
 
