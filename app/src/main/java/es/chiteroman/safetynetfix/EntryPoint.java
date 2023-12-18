@@ -13,12 +13,12 @@ public final class EntryPoint {
     private static final Map<String, String> map = new HashMap<>();
 
     static {
-        map.put("PRODUCT", "WW_Z01H");
-        map.put("DEVICE", "ASUS_Z01H_1");
-        map.put("MANUFACTURER", "asus");
-        map.put("BRAND", "asus");
-        map.put("MODEL", "ASUS_Z01HD");
-        map.put("FINGERPRINT", "asus/WW_Z01H/ASUS_Z01H_1:7.1.1/NMF26F/WW_user_71.60.139.30_20180306:user/release-keys");
+        map.put("PRODUCT", "b1-780_ww_gen1");
+        map.put("DEVICE", "acer_barricadewifi");
+        map.put("MANUFACTURER", "Acer");
+        map.put("BRAND", "acer");
+        map.put("MODEL", "B1-780");
+        map.put("FINGERPRINT", "acer/b1-780_ww_gen1/acer_barricadewifi:6.0/MRA58K/1481784106:user/release-keys");
     }
 
     public static void init() {

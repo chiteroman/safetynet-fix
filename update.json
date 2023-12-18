@@ -1,6 +1,6 @@
 {
-    "version": "v7",
-    "versionCode": 70000,
+    "version": "v8",
+    "versionCode": 80000,
     "zipUrl": "https://nightly.link/chiteroman/safetynet-fix/workflows/android/main/safetynetfix.zip",
     "changelog": ""
 }
